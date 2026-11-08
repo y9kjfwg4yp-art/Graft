@@ -1,0 +1,7 @@
+barcode,klartext,datum,uhrzeit
+02477721355017016312433770,0223/0007/701,08.11.2026,12:02
+# Morgen 4-5 weitere Tickets eintragen - je eine Zeile.
+# barcode  = die lange Zahl unter dem Strichcode (nur Ziffern)
+# klartext = die Nummer darueber, z. B. 0223/0007/701
+# datum    = TT.MM.JJJJ
+# uhrzeit  = HH:MM
