@@ -322,10 +322,14 @@ def layout_filter(clip, W=1080, H=1920):
     layout = split : cam=[x,y,w,h] (Anteile 0..1) oben, Gameplay (game=[...] oder Mitte) unten
     """
     lay = clip.get("layout", "fit")
+    reg = ""
+    if clip.get("region"):  # erst diesen Ausschnitt (Anteile x,y,w,h) nehmen, dann Layout
+        rx, ry, rw, rh = clip["region"]
+        reg = f"crop=iw*{rw}:ih*{rh}:iw*{rx}:ih*{ry},"
     if lay == "crop":
         cx = clip.get("cx", 0.5)
         zoom = clip.get("zoom", 1.0)
-        f = (f"[0:v]scale=-2:{int(H * zoom)},"
+        f = (f"[0:v]{reg}scale=-2:{int(H * zoom)},"
              f"crop={W}:{H}:'max(0,min(iw-{W},iw*{cx}-{W}/2))':'(ih-{H})/2',setsar=1[v0]")
         return f, 0.70
     if lay == "split":
@@ -340,7 +344,7 @@ def layout_filter(clip, W=1080, H=1920):
              f"crop={W}:{bot},setsar=1[bot];"
              f"[top][bot]vstack[v0]")
         return f, top / H
-    f = (f"[0:v]split=2[bg][fg];"
+    f = (f"[0:v]{reg}split=2[bg][fg];"
          f"[bg]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
          f"boxblur=20:2,eq=brightness=-0.12[bgb];"
          f"[fg]scale={W}:-2,setsar=1[fgs];"
@@ -353,8 +357,31 @@ def render_clip(video, clip, out_path, cues, hook_secs, workdir, words=None):
     length = end - start
     W, H = 1080, 1920
     src = clip.get("source", video)
-    seek = start - clip.get("source_start", 0.0)
+    src0 = clip.get("source_start", 0.0)
+    seek = start - src0
+    segs = clip.get("segments")
+    if segs:
+        # Teile vorab zu einer Zwischendatei zusammenfuegen (praktisch verlustfrei)
+        fc, labels, remap, cum = [], "", [], 0.0
+        for i, (a, b) in enumerate(segs):
+            fc.append(f"[0:v]trim=start={a - src0}:end={b - src0},setpts=PTS-STARTPTS[v{i}];"
+                      f"[0:a]atrim=start={a - src0}:end={b - src0},asetpts=PTS-STARTPTS[a{i}]")
+            labels += f"[v{i}][a{i}]"
+            remap.append((a, b, cum))
+            cum += b - a
+        joined = os.path.join(workdir, f"joined_{clip['id']}.mp4")
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-filter_complex",
+                        ";".join(fc) + f";{labels}concat=n={len(segs)}:v=1:a=1[v][a]",
+                        "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast",
+                        "-crf", "12", "-c:a", "pcm_s16le", joined.replace(".mp4", ".mkv")], check=True)
+        src, seek, length = joined.replace(".mp4", ".mkv"), 0.0, cum
+        words = [dict(w, s=w["s"] - a + c, e=min(b, w["e"]) - a + c)
+                 for w in (words or []) for a, b, c in remap if a - 0.05 <= w["s"] < b]
+        start, end = 0.0, cum
+        cues = []
     vf, sub_y = layout_filter(clip, W, H)
+    # Hook-Unterkante: bei 'fit' direkt ueber dem Video, sonst oben im Bild
+    hook_y = clip.get("hook_y", {"fit": 0.31}.get(clip.get("layout", "fit"), 0.19))
     last = "v0"
     font = font_path()
     hook = (clip.get("hook") or "").strip()
@@ -366,7 +393,7 @@ def render_clip(video, clip, out_path, cues, hook_secs, workdir, words=None):
         vf += (f";[{last}]drawtext=fontfile='{font}':textfile='{txtfile}':"
                f"fontsize=62:fontcolor=black:line_spacing=14:"
                f"box=1:boxcolor=white@0.96:boxborderw=26:"
-               f"x=(w-text_w)/2:y=h*0.13{dur}[v1]")
+               f"x=(w-text_w)/2:y=h*{hook_y}-text_h{dur}[v1]")
         last = "v1"
     local_words = [dict(w, s=w["s"] - start, e=min(length, w["e"] - start))
                    for w in (words or []) if w["s"] >= start - 0.05 and w["s"] < end]
@@ -399,6 +426,8 @@ def render_clip(video, clip, out_path, cues, hook_secs, workdir, words=None):
 
 
 def slug(text, fallback):
+    for a, b in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        text = (text or "").lower().replace(a, b)
     s = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")[:40]
     return s or fallback
 
