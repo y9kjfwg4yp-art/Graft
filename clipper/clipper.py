@@ -346,8 +346,14 @@ def cmd_transcribe(args):
         from faster_whisper import WhisperModel
     except ImportError:
         die("faster-whisper fehlt: pip install faster-whisper")
+    import numpy as np
+    # Audio selbst per ffmpeg dekodieren (unabhaengig von PyAV-Versionskonflikten)
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", args.video, "-vn", "-ac", "1",
+                          "-ar", "16000", "-f", "s16le", "-"],
+                         capture_output=True, check=True).stdout
+    audio = np.frombuffer(raw, np.int16).astype(np.float32) / 32768.0
     model = WhisperModel(args.model, device="auto", compute_type="int8")
-    segments, info = model.transcribe(args.video, language=args.lang, vad_filter=True)
+    segments, info = model.transcribe(audio, language=args.lang, vad_filter=True)
     cues = []
     for seg in segments:
         cues.append((seg.start, seg.end, seg.text.strip()))
