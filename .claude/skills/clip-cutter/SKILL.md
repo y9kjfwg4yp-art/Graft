@@ -49,6 +49,33 @@ Lies `clips.json`. Pro Clip:
    - `caption`: 1 bis 2 Saetze plus 3 bis 5 Hashtags, inklusive Credit fuer
      den Streamer (@name), wenn es fremdes Material ist.
 
+## 4b. Lange Twitch-VODs effizient bearbeiten
+- Fuer die Analyse nur die Tonspur laden: `yt-dlp -N 16 -f Audio_Only -o audio.mp4 URL`
+  (4 h ca. 500 MB, < 1 min). Transkript mit `--model base --beam 1` (~8x Echtzeit).
+- Bildlayout pruefen: an mehreren Zeitpunkten 2 s in 360p laden
+  (`--download-sections "*T-T+2"`), Standbilder ansehen. Streams wechseln
+  oft zwischen Facecam-Vollbild, Call-Grids und Gameplay.
+- Video nur fuer die ausgewaehlten Clips laden (720p60, `--download-sections`)
+  und pro Clip `source` und `source_start` (Startsekunde der Datei im VOD) eintragen.
+- Fuer jeden finalen Clip das Transkript genauer neu erstellen:
+  `transcribe clipdatei.mp4 --model small --start ... --end ...` und
+  `words_file` im Clip setzen. Daraus entstehen die Wort-fuer-Wort-Untertitel.
+
+## 4c. Layout pro Clip waehlen (Feld `layout`)
+- `crop` (+ `cx` 0..1 = horizontale Mitte der Person, optional `zoom`): bildfuellend,
+  am besten bei Facecam-Vollbild.
+- `split` (+ `cam` [x,y,w,h] als Anteile, optional `game`, `cam_h`): Facecam oben,
+  Gameplay unten. Standard fuer Gameplay mit Facecam-Overlay.
+- `fit`: ganzes Bild auf unscharfem Hintergrund, fuer Call-Grids und Uebersicht.
+- `sub_y` (0..1) verschiebt die Untertitel, falls sie Gesichter verdecken.
+
+## Was virale Clips gemeinsam haben (Checkliste)
+- In der ersten Sekunde passiert schon etwas: kein Anlauf, keine Begruessung.
+- Kontext nur so viel wie noetig. Die Pointe bzw. Reaktion kommt vor Sekunde 20.
+- Ende direkt nach dem Hoehepunkt (Lacher oder Reaktion), damit der Clip loopt.
+- Grosse Wort-fuer-Wort-Untertitel (viele schauen ohne Ton).
+- Hook als Frage oder Spannung, nicht als Zusammenfassung.
+
 ## 5. Rendern
 `python3 clipper/clipper.py render clips-work/clips.json --srt clips-work/vod.srt -d clips-work/out --hook-secs 4`
 Ergebnis: 1080x1920 MP4s plus `CLIPS.md` mit Hook, Titel und Beschreibung

@@ -25,6 +25,7 @@ from array import array
 
 RATE = 4000  # Hz fuer die Lautstaerke-Analyse, reicht voellig
 FONT_CANDIDATES = [
+    "/usr/share/fonts/opentype/inter/Inter-ExtraBold.otf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
     "/Library/Fonts/Arial Bold.ttf",
@@ -258,16 +259,102 @@ def font_path():
     return None
 
 
-def render_clip(video, clip, out_path, cues, hook_secs, workdir):
+def ass_time(t):
+    t = max(0.0, t)
+    h, rem = divmod(t, 3600)
+    m, s = divmod(rem, 60)
+    return f"{int(h)}:{int(m):02d}:{s:05.2f}"
+
+
+def word_chunks(words, max_words=3, max_chars=16):
+    """Woerter zu kurzen Untertitel-Haeppchen (TikTok-Stil) gruppieren."""
+    chunks, cur = [], []
+    for w in words:
+        if cur and (len(cur) >= max_words
+                    or len(" ".join(x["w"] for x in cur + [w])) > max_chars
+                    or w["s"] - cur[-1]["e"] > 0.6
+                    or re.search(r"[.!?…,]$", cur[-1]["w"])):
+            chunks.append(cur)
+            cur = []
+        cur.append(w)
+    if cur:
+        chunks.append(cur)
+    return chunks
+
+
+def write_karaoke_ass(words, path, y_frac, W=1080, H=1920):
+    """Grosse Wort-fuer-Wort-Untertitel; das gerade gesprochene Wort ist gelb."""
+    head = (f"[Script Info]\nScriptType: v4.00+\nPlayResX: {W}\nPlayResY: {H}\n"
+            "WrapStyle: 2\n\n[V4+ Styles]\n"
+            "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, "
+            "BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, "
+            "BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+            "Style: K,Inter Black,92,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,"
+            "-1,0,0,0,100,100,0,0,1,7,3,5,40,40,0,1\n\n[Events]\n"
+            "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
+    ev = []
+    chunks = word_chunks(words)
+    x, y = W // 2, int(H * y_frac)
+    for ci, ch in enumerate(chunks):
+        nxt = chunks[ci + 1][0]["s"] if ci + 1 < len(chunks) else ch[-1]["e"] + 0.4
+        chunk_end = min(nxt, ch[-1]["e"] + 0.4)
+        for wi, w in enumerate(ch):
+            s = w["s"]
+            e = ch[wi + 1]["s"] if wi + 1 < len(ch) else chunk_end
+            if e <= s:
+                continue
+            parts = []
+            for j, o in enumerate(ch):
+                t = EMOJI.sub("", o["w"]).upper().replace("{", "").replace("}", "")
+                parts.append(r"{\c&H00E6FF&\fscx108\fscy108}" + t + r"{\r}" if j == wi else t)
+            pop = r"{\fad(40,0)}" if wi == 0 else ""
+            ev.append(f"Dialogue: 0,{ass_time(s)},{ass_time(e)},K,,0,0,0,,"
+                      f"{{\\an5\\pos({x},{y})}}{pop}" + " ".join(parts))
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(head + "\n".join(ev) + "\n")
+
+
+def layout_filter(clip, W=1080, H=1920):
+    """Filtergraph fuer das Bildlayout -> Label [v0]; dazu y-Position der Untertitel.
+
+    layout = fit   : ganzes Bild mittig auf unscharfem Hintergrund (Call-Grids, Uebersicht)
+    layout = crop  : bildfuellender 9:16-Ausschnitt, Mitte bei cx (0..1), optional zoom
+    layout = split : cam=[x,y,w,h] (Anteile 0..1) oben, Gameplay (game=[...] oder Mitte) unten
+    """
+    lay = clip.get("layout", "fit")
+    if lay == "crop":
+        cx = clip.get("cx", 0.5)
+        zoom = clip.get("zoom", 1.0)
+        f = (f"[0:v]scale=-2:{int(H * zoom)},"
+             f"crop={W}:{H}:'max(0,min(iw-{W},iw*{cx}-{W}/2))':'(ih-{H})/2',setsar=1[v0]")
+        return f, 0.70
+    if lay == "split":
+        cx, cy, cw, ch = clip["cam"]
+        top = int(H * clip.get("cam_h", 0.42))
+        bot = H - top
+        gx, gy, gw, gh = clip.get("game", [0.0, 0.0, 1.0, 1.0])
+        f = (f"[0:v]split=2[a][b];"
+             f"[a]crop=iw*{cw}:ih*{ch}:iw*{cx}:ih*{cy},scale={W}:{top}:force_original_aspect_ratio=increase,"
+             f"crop={W}:{top},setsar=1[top];"
+             f"[b]crop=iw*{gw}:ih*{gh}:iw*{gx}:ih*{gy},scale={W}:{bot}:force_original_aspect_ratio=increase,"
+             f"crop={W}:{bot},setsar=1[bot];"
+             f"[top][bot]vstack[v0]")
+        return f, top / H
+    f = (f"[0:v]split=2[bg][fg];"
+         f"[bg]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
+         f"boxblur=20:2,eq=brightness=-0.12[bgb];"
+         f"[fg]scale={W}:-2,setsar=1[fgs];"
+         f"[bgb][fgs]overlay=(W-w)/2:(H-h)/2[v0]")
+    return f, 0.74
+
+
+def render_clip(video, clip, out_path, cues, hook_secs, workdir, words=None):
     start, end = clip["start"], clip["end"]
     length = end - start
     W, H = 1080, 1920
-    # Hintergrund: Bild gefuellt + unscharf; Vordergrund: volle Breite, mittig
-    vf = (f"[0:v]split=2[bg][fg];"
-          f"[bg]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
-          f"boxblur=20:2,eq=brightness=-0.08[bgb];"
-          f"[fg]scale={W}:-2[fgs];"
-          f"[bgb][fgs]overlay=(W-w)/2:(H-h)/2[v0]")
+    src = clip.get("source", video)
+    seek = start - clip.get("source_start", 0.0)
+    vf, sub_y = layout_filter(clip, W, H)
     last = "v0"
     font = font_path()
     hook = (clip.get("hook") or "").strip()
@@ -277,11 +364,18 @@ def render_clip(video, clip, out_path, cues, hook_secs, workdir):
             f.write(wrap(hook))
         dur = f":enable='lte(t,{hook_secs})'" if hook_secs > 0 else ""
         vf += (f";[{last}]drawtext=fontfile='{font}':textfile='{txtfile}':"
-               f"fontsize=68:fontcolor=white:line_spacing=12:"
-               f"box=1:boxcolor=black@0.65:boxborderw=28:"
+               f"fontsize=62:fontcolor=black:line_spacing=14:"
+               f"box=1:boxcolor=white@0.96:boxborderw=26:"
                f"x=(w-text_w)/2:y=h*0.13{dur}[v1]")
         last = "v1"
-    if cues:
+    local_words = [dict(w, s=w["s"] - start, e=min(length, w["e"] - start))
+                   for w in (words or []) if w["s"] >= start - 0.05 and w["s"] < end]
+    if local_words:
+        ass = os.path.join(workdir, f"karaoke_{clip['id']}.ass")
+        write_karaoke_ass(local_words, ass, clip.get("sub_y", sub_y), W, H)
+        vf += f";[{last}]ass='{ass}'[v2]"
+        last = "v2"
+    elif cues:
         local = [(max(0, s - start), min(length, e - start), t)
                  for s, e, t in cues if e > start and s < end]
         if local:
@@ -293,10 +387,14 @@ def render_clip(video, clip, out_path, cues, hook_secs, workdir):
             vf += (f";[{last}]subtitles='{srt}':original_size={W}x{H}:"
                    f"force_style='{style}'[v2]")
             last = "v2"
-    cmd = ["ffmpeg", "-v", "error", "-y", "-ss", f"{start}", "-t", f"{length}", "-i", video,
-           "-filter_complex", vf, "-map", f"[{last}]", "-map", "0:a?",
-           "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p",
-           "-r", "30", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", out_path]
+    # Ton: auf Plattform-Lautheit normalisieren (-14 LUFS), kurze Ein-/Ausblendung gegen Knackser
+    af = (f"loudnorm=I=-14:TP=-1.5:LRA=11,afade=t=in:d=0.05,"
+          f"afade=t=out:st={max(0, length - 0.15):.2f}:d=0.15")
+    cmd = ["ffmpeg", "-v", "error", "-y", "-ss", f"{seek}", "-t", f"{length}", "-i", src,
+           "-filter_complex", vf, "-map", f"[{last}]", "-map", "0:a?", "-af", af,
+           "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p",
+           "-r", "30", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+           "-movflags", "+faststart", out_path]
     subprocess.run(cmd, check=True)
 
 
@@ -311,6 +409,11 @@ def cmd_render(args, data=None):
             data = json.load(f)
     video = args.video or data["video"]
     cues = parse_srt(args.srt)
+    words = []
+    wpath = getattr(args, "words", None) or (os.path.splitext(args.srt)[0] + ".words.json" if args.srt else None)
+    if wpath and os.path.exists(wpath):
+        with open(wpath, encoding="utf-8") as f:
+            words = json.load(f)
     os.makedirs(args.dir, exist_ok=True)
     workdir = os.path.join(args.dir, ".work")
     os.makedirs(workdir, exist_ok=True)
@@ -322,7 +425,11 @@ def cmd_render(args, data=None):
         name = f"clip{c['id']:02d}-{slug(c.get('title') or c.get('hook'), c['timestamp'].replace(':', ''))}.mp4"
         out = os.path.join(args.dir, name)
         print(f"Rendere #{c['id']} ({c['timestamp']}) -> {out}")
-        render_clip(video, c, out, cues, args.hook_secs, workdir)
+        cw = words
+        if c.get("words_file"):  # genaueres Transkript nur fuer diesen Clip
+            with open(c["words_file"], encoding="utf-8") as f:
+                cw = json.load(f)
+        render_clip(video, c, out, cues, args.hook_secs, workdir, cw)
         lines.append(f"## {name}\n- Quelle: {c['timestamp']} ({c['end'] - c['start']:.0f}s)\n"
                      f"- Hook: {c.get('hook') or '-'}\n- Titel: {c.get('title') or '-'}\n"
                      f"- Beschreibung: {c.get('caption') or '-'}\n")
@@ -348,18 +455,31 @@ def cmd_transcribe(args):
         die("faster-whisper fehlt: pip install faster-whisper")
     import numpy as np
     # Audio selbst per ffmpeg dekodieren (unabhaengig von PyAV-Versionskonflikten)
-    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", args.video, "-vn", "-ac", "1",
+    off = args.start or 0.0
+    rng = (["-ss", str(off)] if args.start else []) + (["-t", str(args.end - off)] if args.end else [])
+    raw = subprocess.run(["ffmpeg", "-v", "error"] + rng + ["-i", args.video, "-vn", "-ac", "1",
                           "-ar", "16000", "-f", "s16le", "-"],
                          capture_output=True, check=True).stdout
     audio = np.frombuffer(raw, np.int16).astype(np.float32) / 32768.0
-    model = WhisperModel(args.model, device="auto", compute_type="int8")
-    segments, info = model.transcribe(audio, language=args.lang, vad_filter=True)
-    cues = []
-    for seg in segments:
-        cues.append((seg.start, seg.end, seg.text.strip()))
-        print(f"\r{fmt_ts(seg.end)}", end="", flush=True)
+    model = WhisperModel(args.model, device="auto", compute_type="int8",
+                         cpu_threads=os.cpu_count() or 4)
+    segments, info = model.transcribe(audio, language=args.lang, vad_filter=True,
+                                      word_timestamps=True, beam_size=args.beam,
+                                      condition_on_previous_text=False)
+    cues, words = [], []
+    for i, seg in enumerate(segments):
+        cues.append((seg.start + off, seg.end + off, seg.text.strip()))
+        for w in seg.words or []:
+            words.append({"s": round(w.start + off, 2), "e": round(w.end + off, 2),
+                          "w": w.word.strip(), "p": round(w.probability, 2)})
+        print(f"\r{fmt_ts(seg.end + off)}", end="", flush=True)
+        if i % 50 == 0:  # Zwischenstand sichern (lange VODs)
+            write_srt(cues, args.out)
     write_srt(cues, args.out)
-    print(f"\nTranskript ({info.language}) -> {args.out}")
+    words_path = os.path.splitext(args.out)[0] + ".words.json"
+    with open(words_path, "w", encoding="utf-8") as f:
+        json.dump(words, f, ensure_ascii=False)
+    print(f"\nTranskript ({info.language}) -> {args.out} (+ Wortzeiten {words_path})")
 
 
 def main():
@@ -378,6 +498,9 @@ def main():
     t.add_argument("-o", "--out", default="transcript.srt")
     t.add_argument("--model", default="small")
     t.add_argument("--lang", default=None, help="z.B. de oder en (sonst automatisch)")
+    t.add_argument("--start", type=float, help="nur ab Sekunde X (Zeiten bleiben absolut)")
+    t.add_argument("--end", type=float, help="nur bis Sekunde Y")
+    t.add_argument("--beam", type=int, default=5, help="1 = schnell, 5 = genau")
 
     def common(sp):
         sp.add_argument("--srt", help="Transkript (.srt) fuer Untertitel + Hype-Woerter")
@@ -403,6 +526,7 @@ def main():
     r.add_argument("--hook-secs", type=float, default=0,
                    help="Hook nur die ersten N s zeigen (0 = ganzer Clip)")
     r.add_argument("--only", type=int, nargs="*", help="nur diese Clip-IDs")
+    r.add_argument("--words", help="Wortzeiten (.words.json); Standard: neben --srt")
 
     args = p.parse_args()
     if args.cmd == "fetch":
