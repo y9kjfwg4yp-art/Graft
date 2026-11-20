@@ -1,0 +1,130 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1080px;height:1920px;overflow:hidden;background:#0A0E18;font-family:'Inter',sans-serif;color:#fff}
+#bg{position:absolute;inset:0;background:radial-gradient(1200px 900px at 50% 30%,#1A2340 0%,#0A0E18 70%)}
+.lines{position:absolute;inset:0;overflow:hidden;opacity:.18}
+.lines div{position:absolute;height:6px;background:#fff;border-radius:3px}
+.scene{position:absolute;left:0;top:0;width:1080px;height:1920px;opacity:0}
+.c{position:absolute;left:90px;right:90px;text-align:center}
+.tag{display:inline-block;font-weight:800;font-size:34px;letter-spacing:6px;padding:14px 28px;border-radius:999px;background:#FF5A1F;color:#0A0E18}
+.big{font-weight:900;font-size:150px;line-height:1;letter-spacing:-4px}
+.h{font-weight:800;font-size:76px;line-height:1.08;letter-spacing:-1.5px}
+.s{font-weight:500;font-size:44px;line-height:1.3;color:#B8C2DC}
+.o{color:#FF5A1F}.b{color:#4DB2FF}
+.lane{position:absolute;left:90px;right:90px;height:150px}
+.road{position:absolute;left:0;right:0;top:95px;height:10px;background:#26304D;border-radius:5px}
+.fill{position:absolute;left:0;top:95px;height:10px;border-radius:5px}
+.car{position:absolute;top:28px;width:150px;height:70px;margin-left:-150px}
+.lbl{position:absolute;left:0;top:-36px;font-weight:800;font-size:44px}
+.fin{position:absolute;right:0;top:-36px;font-weight:800;font-size:44px;font-variant-numeric:tabular-nums}
+.row{position:absolute;left:90px;right:90px;height:140px}
+.row .d{position:absolute;left:0;top:0;font-weight:700;font-size:46px;color:#B8C2DC}
+.row .v{position:absolute;right:0;top:-6px;font-weight:900;font-size:62px;font-variant-numeric:tabular-nums}
+.row .bar{position:absolute;left:0;top:78px;height:30px;border-radius:15px;background:linear-gradient(90deg,#FF5A1F,#FFB01F)}
+.row .trk{position:absolute;left:0;right:0;top:78px;height:30px;border-radius:15px;background:#1C2440}
+.item{position:absolute;left:90px;right:90px;font-weight:700;font-size:52px;line-height:1.25;display:flex;gap:28px;align-items:flex-start}
+.x{flex:none;width:64px;height:64px;border-radius:50%;background:#FF3B3B;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:42px}
+.card{position:absolute;left:90px;right:90px;height:220px;border-radius:36px;background:#141B30;border:3px solid #26304D;padding:34px 44px;display:flex;align-items:center;gap:40px}
+.card .n{font-weight:900;font-size:92px;letter-spacing:-3px;color:#FF5A1F;width:440px;flex:none;white-space:nowrap}
+.card .t{font-weight:700;font-size:44px;line-height:1.2}
+.card .t span{display:block;font-weight:500;font-size:34px;color:#B8C2DC;margin-top:6px}
+#prog{position:absolute;left:90px;right:90px;top:200px;height:8px;border-radius:4px;background:#1C2440;overflow:hidden}
+#prog div{height:100%;background:#FF5A1F;width:0}
+#brand{position:absolute;left:0;right:0;top:232px;text-align:center;font-weight:800;font-size:28px;letter-spacing:8px;color:#5D6A8C}
+</style></head><body>
+<div id="bg"></div><div class="lines" id="lines"></div>
+<div id="prog"><div></div></div><div id="brand">TEMPO-CHECK</div>
+
+<!-- 1 Hook -->
+<div class="scene" id="s1">
+ <div class="c" style="top:470px"><span class="tag">AUTOBAHN-MATHE</span></div>
+ <div class="c big" style="top:620px"><span class="b" id="h130">130</span></div>
+ <div class="c h" style="top:790px;color:#5D6A8C">vs.</div>
+ <div class="c big" style="top:900px"><span class="o" id="h160">160</span></div>
+ <div class="c h" style="top:1110px">Wie viel Zeit sparst du <span class="o">wirklich?</span></div>
+</div>
+
+<!-- 2 Race -->
+<div class="scene" id="s2">
+ <div class="c h" style="top:330px">100 km Autobahn</div>
+ <div class="c s" style="top:430px">Race-Uhr</div>
+ <div class="c big" style="top:500px;font-variant-numeric:tabular-nums" id="clock">00:00</div>
+ <div class="lane" style="top:800px"><div class="lbl o">160 km/h</div><div class="fin o" id="f160"></div><div class="road"></div><div class="fill" id="r160" style="background:#FF5A1F"></div><svg class="car" id="c160" viewBox="0 0 150 70"><path d="M8 50 Q8 34 26 32 L46 14 Q52 8 62 8 L100 8 Q110 8 116 16 L130 32 Q146 34 146 48 L146 54 L8 54Z" fill="#FF5A1F"/><path d="M52 18 L60 12 L84 12 L84 30 L40 30Z M90 12 L100 12 Q106 12 110 18 L120 30 L90 30Z" fill="#0A0E18" opacity=".55"/><circle cx="38" cy="56" r="13" fill="#0A0E18" stroke="#fff" stroke-width="4"/><circle cx="116" cy="56" r="13" fill="#0A0E18" stroke="#fff" stroke-width="4"/></svg></div>
+ <div class="lane" style="top:1050px"><div class="lbl b">130 km/h</div><div class="fin b" id="f130"></div><div class="road"></div><div class="fill" id="r130" style="background:#4DB2FF"></div><svg class="car" id="c130" viewBox="0 0 150 70"><path d="M8 50 Q8 34 26 32 L46 14 Q52 8 62 8 L100 8 Q110 8 116 16 L130 32 Q146 34 146 48 L146 54 L8 54Z" fill="#4DB2FF"/><path d="M52 18 L60 12 L84 12 L84 30 L40 30Z M90 12 L100 12 Q106 12 110 18 L120 30 L90 30Z" fill="#0A0E18" opacity=".55"/><circle cx="38" cy="56" r="13" fill="#0A0E18" stroke="#fff" stroke-width="4"/><circle cx="116" cy="56" r="13" fill="#0A0E18" stroke="#fff" stroke-width="4"/></svg></div>
+ <div class="c" style="top:1270px" id="gap"><div class="s">Vorsprung</div><div class="big o" style="font-size:130px">8:39 min</div></div>
+</div>
+
+<!-- 3 Distances -->
+<div class="scene" id="s3">
+ <div class="c h" style="top:340px">Gesparte Zeit<br><span class="s" style="font-size:44px">bei konstant 160 statt 130</span></div>
+ <div class="row" style="top:640px"><div class="d">50 km</div><div class="v" id="v1"></div><div class="trk"></div><div class="bar" id="b1"></div></div>
+ <div class="row" style="top:820px"><div class="d">100 km</div><div class="v" id="v2"></div><div class="trk"></div><div class="bar" id="b2"></div></div>
+ <div class="row" style="top:1000px"><div class="d">300 km</div><div class="v" id="v3"></div><div class="trk"></div><div class="bar" id="b3"></div></div>
+ <div class="row" style="top:1180px"><div class="d">500 km</div><div class="v" id="v4"></div><div class="trk"></div><div class="bar" id="b4"></div></div>
+ <div class="c s" style="top:1360px" id="rule">≈ 5 Sekunden pro Kilometer</div>
+</div>
+
+<!-- 4 Reality -->
+<div class="scene" id="s4">
+ <div class="c" style="top:360px"><span class="tag" style="background:#FF3B3B;color:#fff">ABER</span></div>
+ <div class="c h" style="top:480px">Das gilt nur, wenn du <span class="o">durchgehend</span> 160 fährst.</div>
+ <div class="item" style="top:800px" id="i1"><div class="x">✕</div><div>Baustellen &amp; Tempolimits</div></div>
+ <div class="item" style="top:930px" id="i2"><div class="x">✕</div><div>Stau &amp; LKW-Überholer</div></div>
+ <div class="item" style="top:1060px" id="i3"><div class="x">✕</div><div>Extra Tankstopp</div></div>
+ <div class="c s" style="top:1240px" id="i4">In echt bleibt oft nur ein <b style="color:#fff">Bruchteil</b> der Ersparnis.</div>
+</div>
+
+<!-- 5 Cost -->
+<div class="scene" id="s5">
+ <div class="c h" style="top:340px">Und das kostet's dich</div>
+ <div class="card" style="top:560px" id="k1"><div class="n">+50 %</div><div class="t">Luftwiderstand<span>Energie pro km</span></div></div>
+ <div class="card" style="top:820px" id="k2"><div class="n">+20–35 %</div><div class="t">Verbrauch<span>je nach Auto</span></div></div>
+ <div class="card" style="top:1080px" id="k3"><div class="n">1,5×</div><div class="t">Bremsweg<span>länger als bei 130</span></div></div>
+</div>
+
+<!-- 6 Outro -->
+<div class="scene" id="s6">
+ <div class="c s" style="top:430px">Fazit</div>
+ <div class="c big o" style="top:510px;font-size:190px">≈ 9 Min</div>
+ <div class="c h" style="top:730px">pro 100 km –<br>aber nur in der Theorie.</div>
+ <div class="c h" style="top:1050px;font-size:64px" id="q">Ist es dir das wert?</div>
+ <div class="c s" style="top:1160px" id="q2">Schreib’s in die Kommentare</div>
+</div>
+
+<script>
+const D=27;
+const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const p=(t,a,b)=>cl((t-a)/(b-a));
+const eo=x=>1-Math.pow(1-x,3);
+const eb=x=>{const c=1.70158;return 1+(c+1)*Math.pow(x-1,3)+c*Math.pow(x-1,2)};
+const $=id=>document.getElementById(id);
+const SC=[['s1',0,3.4],['s2',3.4,10.6],['s3',10.6,15.8],['s4',15.8,20.4],['s5',20.4,24],['s6',24,27.1]];
+const fmt=m=>{const s=Math.round(m*60);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
+// speed lines
+const L=$('lines');const LN=[];for(let i=0;i<14;i++){const d=document.createElement('div');const y=(i*137)%1920,w=120+(i*71)%260,sp=900+(i*313)%1400;d.style.top=y+'px';d.style.width=w+'px';L.appendChild(d);LN.push({d,w,sp,o:(i*431)%1400});}
+function pop(el,t,a){const k=p(t,a,a+.45);el.style.opacity=k;el.style.transform=`translateY(${(1-eo(k))*60}px) scale(${.9+.1*eb(k)})`;}
+function render(t){
+ $('prog').firstChild.style.width=(t/D*100)+'%';
+ LN.forEach(l=>{l.d.style.left=(1080-((t*l.sp+l.o)%(1080+l.w+400)))+'px'});
+ for(const [id,a,b] of SC){const el=$(id);const fi=p(t,a,a+.3),fo=1-p(t,b-.3,b);const o=a===0?fo:Math.min(fi,fo);el.style.opacity=o;el.style.transform=`translateY(${(1-eo(fi))*40}px)`;}
+ // s1
+ pop($('h130'),t,.15);pop($('h160'),t,.55);
+ $('h130').style.display=$('h160').style.display='inline-block';
+ // s2 race: video 4.2..9.2 -> 0..46.15 min
+ const T=p(t,4.2,9.2)*46.16;$('clock').textContent=fmt(Math.min(T,46.15));
+ [['160',37.5],['130',100/130*60]].forEach(([k,tot])=>{const f=cl(T/tot);$('r'+k).style.width=(f*100)+'%';$('c'+k).style.left=(f*100)+'%';$('f'+k).textContent=f>=1?fmt(tot)+' ✓':'';});
+ $('clock').style.color=T>=37.5&&T<46.1?'#FF5A1F':'#fff';
+ pop($('gap'),t,9.35);
+ // s3
+ const S=[[50,4.33,'4:20'],[100,8.65,'8:39'],[300,25.96,'26 min'],[500,43.27,'43 min']];
+ S.forEach(([km,m,lab],i)=>{const k=eo(p(t,11.1+i*.55,11.9+i*.55));$('b'+(i+1)).style.width=(k*m/43.27*100)+'%';const v=k*m;$('v'+(i+1)).textContent=k<=0?'':(k<1?(m<10?fmt(v).replace(/^0/,''):Math.round(v)+' min'):(m<10?'– '+lab+' min':'– '+lab));});
+ pop($('rule'),t,13.9);
+ // s4
+ pop($('i1'),t,16.8);pop($('i2'),t,17.3);pop($('i3'),t,17.8);pop($('i4'),t,18.6);
+ // s5
+ pop($('k1'),t,20.8);pop($('k2'),t,21.5);pop($('k3'),t,22.2);
+ // s6
+ pop($('q'),t,25.2);pop($('q2'),t,25.6);
+}
+window.render=render;render(0);
+</script></body></html>
